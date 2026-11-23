@@ -11,9 +11,9 @@ class InitialSeeder extends Seeder
 {
     public function run(): void
     {
-        foreach (['master_teacher', 'teacher', 'student', 'sned_coordinator'] as $name) {
-            Role::firstOrCreate(['name' => $name]);
-        }
+        foreach (['master_teacher', 'teacher', 'student'] as $name) {
+    Role::firstOrCreate(['name' => $name]);
+}
 
         $user = UserAccount::firstOrCreate(
             ['email' => 'master@example.com'],

@@ -26,11 +26,6 @@ Schema::create('master_teacher', function (Blueprint $t) {
     $t->foreign('master_teacher_id')->references('user_id')->on('user_account')->cascadeOnDelete();
 });
 
-Schema::create('sned_coordinator', function (Blueprint $t) {
-    $t->unsignedInteger('coordinator_id')->primary();
-    $t->string('display_name', 120);
-    $t->foreign('coordinator_id')->references('user_id')->on('user_account')->cascadeOnDelete();
-});
 
 Schema::create('student_profile', function (Blueprint $t) {
     $t->unsignedInteger('student_id')->primary();
@@ -47,8 +42,10 @@ Schema::create('student_profile', function (Blueprint $t) {
     /**
      * Reverse the migrations.
      */
-    public function down(): void
+        public function down(): void
     {
-        Schema::dropIfExists('profile_tables');
+        Schema::dropIfExists('student_profile');
+        Schema::dropIfExists('master_teacher');
+        Schema::dropIfExists('teacher_profile');
     }
 };

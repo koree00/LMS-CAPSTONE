@@ -9,10 +9,11 @@ use App\Models\UserAccount;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Models\Section;
 
 class AccountController extends Controller
 {
-    // Master Teacher only: create a teacher
+        // Master Teacher only: create a teacher, optionally with sections
     public function createTeacher(Request $request)
     {
         $actor = $request->user();
@@ -25,11 +26,15 @@ class AccountController extends Controller
         $data = $request->validate([
             'email' => 'required|email|unique:user_account,email',
             'display_name' => 'required|string|max:120',
+            'section_ids' => 'sometimes|array',
+            'section_ids.*' => 'integer|exists:section,section_id',
+            'new_sections' => 'sometimes|array',
+            'new_sections.*' => 'string|max:100',
         ]);
 
         $tempPassword = Str::password(12, symbols: false);
 
-        $user = DB::transaction(function () use ($data, $tempPassword) {
+        $result = DB::transaction(function () use ($data, $tempPassword) {
             $user = UserAccount::create([
                 'role_id' => Role::where('name', 'teacher')->value('role_id'),
                 'email' => $data['email'],
@@ -39,15 +44,40 @@ class AccountController extends Controller
                 'teacher_id' => $user->user_id,
                 'display_name' => $data['display_name'],
             ]);
-            return $user;
+
+            $sectionIds = [];
+
+            // Move existing sections to this teacher
+            if (! empty($data['section_ids'])) {
+                DB::table('section')
+                    ->whereIn('section_id', $data['section_ids'])
+                    ->update(['teacher_id' => $user->user_id, 'updated_at' => now()]);
+                $sectionIds = array_merge($sectionIds, $data['section_ids']);
+            }
+
+            // Create brand-new sections already owned by this teacher
+            foreach ($data['new_sections'] ?? [] as $name) {
+                $sectionIds[] = Section::create([
+                    'teacher_id' => $user->user_id,
+                    'section_name' => $name,
+                ])->section_id;
+            }
+
+            return [$user, $sectionIds];
         });
 
-        AuditLog::record($actor->user_id, 'create_teacher', ['user_id' => $user->user_id]);
+        [$user, $sectionIds] = $result;
+
+        AuditLog::record($actor->user_id, 'create_teacher', [
+            'user_id' => $user->user_id,
+            'section_ids' => $sectionIds,
+        ]);
 
         return response()->json([
             'user_id' => $user->user_id,
             'email' => $user->email,
             'temporary_password' => $tempPassword, // shown once
+            'section_ids' => $sectionIds,
         ], 201);
     }
 
@@ -108,11 +138,21 @@ class AccountController extends Controller
         $query = UserAccount::whereHas('role', fn ($q) => $q->where('name', $role))
             ->select('user_id', 'email', 'status', 'created_at');
 
-        if ($actor->role->name === 'teacher') {
-            $query->whereIn('user_id', DB::table('student_profile')
-                ->where('created_by_teacher_id', $actor->user_id)->pluck('student_id'));
-        }
+                if ($actor->role->name === 'teacher') {
+            $ids = DB::table('student_profile')
+                ->where('created_by_teacher_id', $actor->user_id)
+                ->pluck('student_id')
+                ->merge(
+                    DB::table('section_student as ss')
+                        ->join('section as s', 's.section_id', '=', 'ss.section_id')
+                        ->where('s.teacher_id', $actor->user_id)
+                        ->pluck('ss.student_id')
+                )
+                ->unique()
+                ->values();
 
+            $query->whereIn('user_id', $ids);
+        }
         return $query->paginate(25);
     }
 
