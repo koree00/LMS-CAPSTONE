@@ -82,26 +82,37 @@ class GameController extends Controller
     }
 
     // STUDENT: submit an attempt
-        public function attempt(Request $request)
+    public function attempt(Request $request)
     {
         $data = $request->validate(['score' => 'required|integer|min:0|max:100']);
         $studentId = $request->user()->user_id;
 
         $game = $this->currentGame();
-        abort_unless($game, 404, 'No game this week.');
+        if (! $game) {
+            return response()->json(['message' => 'No game this week.'], 404);
+        }
+
+        $score = (int) $data['score'];
 
         $bestBefore = (int) DB::table('game_attempt')
             ->where('game_id', $game->game_id)
             ->where('student_id', $studentId)
             ->max('score');
 
-        [$coins, $source] = $this->coinsFromEngine($data['score'], $bestBefore);
+        [$rawCoins, $source] = $this->coinsFromEngine($score, $bestBefore);
+        $coins = max(0, (int) $rawCoins);
 
-        $attemptId = DB::transaction(function () use ($game, $studentId, $data, $coins) {
-            $attemptId = DB::table('game_attempt')->insertGetId([
+        $attemptId = DB::transaction(function () use ($game, $studentId, $score, $coins) {
+            DB::table('game_attempt')
+                ->where('game_id', $game->game_id)
+                ->where('student_id', $studentId)
+                ->lockForUpdate()
+                ->get();
+
+            $id = DB::table('game_attempt')->insertGetId([
                 'game_id' => $game->game_id,
                 'student_id' => $studentId,
-                'score' => $data['score'],
+                'score' => $score,
                 'coins_earned' => $coins,
             ], 'attempt_id');
 
@@ -110,16 +121,16 @@ class GameController extends Controller
                     'student_id' => $studentId,
                     'amount' => $coins,
                     'reason' => 'weekly_game',
-                    'ref_id' => $attemptId,
+                    'ref_id' => $id,
                 ]);
             }
 
-            return $attemptId;
+            return $id;
         });
 
         return response()->json([
             'attempt_id' => $attemptId,
-            'score' => $data['score'],
+            'score' => $score,
             'coins_earned' => $coins,
             'balance' => $this->balance($studentId),
             'rules_source' => $source,
@@ -141,22 +152,45 @@ class GameController extends Controller
         ]);
     }
 
-       // Asks the Python engine; falls back to the basic formula if it's down
+    // Current week's validated game (week starts on Monday)
+    private function currentGame(): ?object
+    {
+        $weekStart = Carbon::now()->startOfWeek(Carbon::MONDAY)->toDateString();
+
+        return DB::table('weekly_game')
+            ->whereDate('week_start', $weekStart)
+            ->whereNotNull('validated_by')
+            ->first();
+    }
+
+    // Current student coin balance
+    private function balance(int $studentId): int
+    {
+        return (int) DB::table('coin_transaction')
+            ->where('student_id', $studentId)
+            ->sum('amount');
+    }
+
+    // Asks the Python engine; falls back to the basic formula if it's down
     private function coinsFromEngine(int $score, int $bestBefore): array
     {
-        try {
-            $res = Http::withHeaders(['X-Engine-Key' => config('services.engine.key')])
-                ->timeout(3)
-                ->post(config('services.engine.url') . '/score', [
-                    'score' => $score,
-                    'best_before' => $bestBefore,
-                ]);
+        $url = config('services.engine.url');
 
-            if ($res->successful()) {
-                return [(int) $res->json('coins'), 'engine'];
+        if (! empty($url)) {
+            try {
+                $res = Http::withHeaders(['X-Engine-Key' => config('services.engine.key')])
+                    ->timeout(3)
+                    ->post(rtrim($url, '/') . '/score', [
+                        'score' => $score,
+                        'best_before' => $bestBefore,
+                    ]);
+
+                if ($res->successful() && $res->json('coins') !== null) {
+                    return [max(0, (int) $res->json('coins')), 'engine'];
+                }
+            } catch (\Throwable $e) {
+                report($e);
             }
-        } catch (\Throwable $e) {
-            report($e);
         }
 
         return [max(0, intdiv($score, 10) - intdiv($bestBefore, 10)), 'fallback'];
