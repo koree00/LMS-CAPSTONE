@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Lesson;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class LessonController extends Controller
 {
@@ -20,6 +22,10 @@ class LessonController extends Controller
 
         if ($request->filled('level_no')) {
             $query->where('level_no', $request->integer('level_no'));
+        }
+
+        if ($request->filled('subject')) {
+            $query->where('subject', $request->input('subject'));
         }
 
         return $query->get();
@@ -42,6 +48,7 @@ class LessonController extends Controller
         $data = $request->validate([
             'title' => 'required|string|max:160',
             'description' => 'nullable|string',
+            'subject' => ['required', Rule::in(Lesson::SUBJECTS)],
             'level_no' => 'required|integer|min:1',
             'is_unlocked' => 'boolean',
         ]);
@@ -60,6 +67,7 @@ class LessonController extends Controller
         $data = $request->validate([
             'title' => 'sometimes|string|max:160',
             'description' => 'nullable|string',
+            'subject' => ['sometimes', Rule::in(Lesson::SUBJECTS)],
             'level_no' => 'sometimes|integer|min:1',
             'is_unlocked' => 'sometimes|boolean',
         ]);
@@ -72,6 +80,29 @@ class LessonController extends Controller
         ]);
 
         return $lesson;
+    }
+
+    // MASTER / TEACHER: open or lock one whole day of a level (all its lessons at once)
+    public function setDay(Request $request)
+    {
+        $data = $request->validate([
+            'level_no' => 'required|integer|min:1',
+            'day_no' => 'required|integer|min:1|max:5',
+            'is_unlocked' => 'required|boolean',
+        ]);
+
+        $updated = DB::table('lesson')
+            ->where('level_no', $data['level_no'])
+            ->where('day_no', $data['day_no'])
+            ->update(['is_unlocked' => $data['is_unlocked'], 'updated_at' => now()]);
+
+        AuditLog::record(
+            $request->user()->user_id,
+            $data['is_unlocked'] ? 'open_day' : 'lock_day',
+            ['level_no' => $data['level_no'], 'day_no' => $data['day_no'], 'lessons' => $updated]
+        );
+
+        return response()->json(['updated' => $updated]);
     }
 
     public function destroy(Request $request, int $id)

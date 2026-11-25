@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\Section;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class SectionController extends Controller
 {
@@ -87,10 +88,16 @@ class SectionController extends Controller
     {
         $section = $this->findAllowed($request, $id);
 
+        // Works before and after the exceptionality migration has run
+        $columns = ['sp.student_id', 'sp.nickname', 'ss.joined_at'];
+        if (Schema::hasColumn('student_profile', 'exceptionality')) {
+            $columns[] = 'sp.exceptionality';
+        }
+
         $students = DB::table('section_student as ss')
             ->join('student_profile as sp', 'sp.student_id', '=', 'ss.student_id')
             ->where('ss.section_id', $section->section_id)
-            ->select('sp.student_id', 'sp.nickname', 'ss.joined_at')
+            ->select($columns)
             ->get();
 
         return response()->json(['section' => $section, 'students' => $students]);

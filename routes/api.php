@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\GameController;
 use App\Http\Controllers\Api\LessonController;
+use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ProgressController;
 use App\Http\Controllers\Api\RewardController;
 use App\Http\Controllers\Api\SectionController;
@@ -37,6 +38,11 @@ Route::middleware(['auth:sanctum', 'ability:*'])->group(function () {
         Route::post('/account/password', [SettingsController::class, 'changePassword']);
     });
 
+    // Staff profile: title, name, profile picture
+    Route::middleware(['role:master_teacher,teacher', 'throttle:20,1'])->group(function () {
+        Route::post('/account/profile', [ProfileController::class, 'update']);
+    });
+
     // Student routes
     Route::middleware('role:student')->group(function () {
         Route::get('/my/levels', [ProgressController::class, 'levels']);
@@ -61,6 +67,7 @@ Route::middleware(['auth:sanctum', 'ability:*'])->group(function () {
 
         Route::get('/sections', [SectionController::class, 'index']);
         Route::get('/sections/{id}', [SectionController::class, 'show']);
+        Route::get('/sections/{id}/progress', [ProgressController::class, 'section']);
         Route::post('/sections/{id}/students', [SectionController::class, 'addStudent']);
         Route::delete('/sections/{id}/students/{studentId}', [SectionController::class, 'removeStudent']);
 
@@ -68,7 +75,14 @@ Route::middleware(['auth:sanctum', 'ability:*'])->group(function () {
         Route::get('/accounts/{role}', [AccountController::class, 'index']);
         Route::patch('/accounts/{userId}/status', [AccountController::class, 'setStatus']);
 
+        Route::get('/students/{studentId}/progress', [ProgressController::class, 'student']);
+        Route::get('/students/{studentId}/summary', [ProgressController::class, 'summary']);
+        Route::patch('/students/{studentId}/exceptionality', [AccountController::class, 'setExceptionality']);
+        Route::get('/analytics/completion', [ProgressController::class, 'completion']);
         Route::get('/students/{studentId}/rewards', [RewardController::class, 'forStudent']);
+
+        // Allow teachers and master teachers to unlock/update lessons
+        Route::patch('/lessons/{id}', [LessonController::class, 'update']);
     });
 
     // Master teacher routes
@@ -82,7 +96,6 @@ Route::middleware(['auth:sanctum', 'ability:*'])->group(function () {
         Route::patch('/sections/{id}', [SectionController::class, 'update']);
 
         Route::post('/lessons', [LessonController::class, 'store']);
-        Route::patch('/lessons/{id}', [LessonController::class, 'update']);
         Route::delete('/lessons/{id}', [LessonController::class, 'destroy']);
 
         Route::post('/rewards', [RewardController::class, 'store']);

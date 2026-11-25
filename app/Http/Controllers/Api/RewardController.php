@@ -7,9 +7,10 @@ use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+// The "avatar shop": items students buy with stars
 class RewardController extends Controller
 {
-    // Students: active rewards with an "owned" flag. Staff: every reward.
+    // Students: active items with an "owned" flag. Staff: every item.
     public function index(Request $request)
     {
         $user = $request->user();
@@ -22,7 +23,7 @@ class RewardController extends Controller
                 })
                 ->where('r.is_active', true)
                 ->orderBy('r.cost_coins')
-                ->selectRaw('r.reward_id, r.reward_name, r.description, r.cost_coins,
+                ->selectRaw('r.reward_id, r.reward_name, r.description, r.emoji, r.cost_coins,
                              (sr.student_reward_id IS NOT NULL) as owned')
                 ->get();
         }
@@ -36,6 +37,7 @@ class RewardController extends Controller
         $data = $request->validate([
             'reward_name' => 'required|string|max:120',
             'description' => 'nullable|string',
+            'emoji' => 'nullable|string|max:16',
             'cost_coins' => 'required|integer|min:1',
         ]);
 
@@ -58,6 +60,7 @@ class RewardController extends Controller
         $data = $request->validate([
             'reward_name' => 'sometimes|string|max:120',
             'description' => 'nullable|string',
+            'emoji' => 'nullable|string|max:16',
             'cost_coins' => 'sometimes|integer|min:1',
             'is_active' => 'sometimes|boolean',
         ]);
@@ -72,28 +75,28 @@ class RewardController extends Controller
         return DB::table('reward')->where('reward_id', $id)->first();
     }
 
-    // STUDENT: spend coins to claim a reward
+    // STUDENT: spend stars to buy an item
     public function claim(Request $request, int $id)
     {
         $studentId = $request->user()->user_id;
 
         $reward = DB::table('reward')->where('reward_id', $id)->where('is_active', true)->first();
-        abort_unless($reward, 404, 'Reward not found.');
+        abort_unless($reward, 404, 'Item not found.');
 
         return DB::transaction(function () use ($studentId, $reward) {
-            // Lock this student's row so two quick taps can't spend the same coins twice
+            // Lock this student's row so two quick taps cannot spend the same stars twice
             DB::table('student_profile')->where('student_id', $studentId)->lockForUpdate()->first();
 
             if (DB::table('student_reward')
                 ->where('student_id', $studentId)->where('reward_id', $reward->reward_id)->exists()) {
-                return response()->json(['message' => 'You already have this reward.'], 409);
+                return response()->json(['message' => 'You already have this item.'], 409);
             }
 
             $balance = (int) DB::table('coin_transaction')->where('student_id', $studentId)->sum('amount');
 
             if ($balance < $reward->cost_coins) {
                 return response()->json([
-                    'message' => 'Not enough coins.',
+                    'message' => 'Not enough stars.',
                     'balance' => $balance,
                     'cost_coins' => $reward->cost_coins,
                 ], 422);
@@ -112,20 +115,20 @@ class RewardController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Reward claimed!',
+                'message' => 'You got the ' . $reward->reward_name . '!',
                 'reward' => $reward->reward_name,
                 'balance' => $balance - $reward->cost_coins,
             ], 201);
         });
     }
 
-    // STUDENT: rewards I own
+    // STUDENT: items I own
     public function mine(Request $request)
     {
         return $this->claimedBy($request->user()->user_id);
     }
 
-    // TEACHER / MASTER: rewards a student owns
+    // TEACHER / MASTER: items a student owns
     public function forStudent(Request $request, int $studentId)
     {
         abort_unless(DB::table('student_profile')->where('student_id', $studentId)->exists(), 404);
@@ -152,7 +155,7 @@ class RewardController extends Controller
             ->join('reward as r', 'r.reward_id', '=', 'sr.reward_id')
             ->where('sr.student_id', $studentId)
             ->orderByDesc('sr.claimed_at')
-            ->select('r.reward_id', 'r.reward_name', 'r.cost_coins', 'sr.claimed_at')
+            ->select('r.reward_id', 'r.reward_name', 'r.emoji', 'r.cost_coins', 'sr.claimed_at')
             ->get();
     }
 }

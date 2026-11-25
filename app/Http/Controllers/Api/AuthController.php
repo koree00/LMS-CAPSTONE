@@ -12,7 +12,6 @@ use PragmaRX\Google2FA\Google2FA;
 
 class AuthController extends Controller
 {
-    // Step 1 of login: email + password
     public function login(Request $request)
     {
         $data = $request->validate([
@@ -20,7 +19,8 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        $user = UserAccount::where('email', $data['email'])->first();
+        $email = Str::lower($data['email']);
+        $user = UserAccount::whereRaw('LOWER(email) = ?', [$email])->first();
 
         if (! $user || ! Hash::check($data['password'], $user->password_hash)) {
             return response()->json(['message' => 'Invalid credentials.'], 422);
@@ -30,7 +30,6 @@ class AuthController extends Controller
             return response()->json(['message' => 'This account is disabled.'], 403);
         }
 
-        // TOTP already set up -> ask for the code
         if ($user->totp_confirmed_at) {
             $ticket = Str::random(60);
             Cache::put("login_ticket:$ticket", $user->user_id, now()->addMinutes(5));
@@ -41,7 +40,6 @@ class AuthController extends Controller
             ]);
         }
 
-        // No TOTP yet: issue a token that can ONLY set up 2FA
         $token = $user->createToken('setup', ['2fa-setup'])->plainTextToken;
 
         return response()->json([
@@ -50,7 +48,6 @@ class AuthController extends Controller
         ]);
     }
 
-    // Step 2 of login: the 6-digit code
     public function verifyOtp(Request $request)
     {
         $data = $request->validate([
@@ -63,6 +60,12 @@ class AuthController extends Controller
 
         if (! $user) {
             return response()->json(['message' => 'Login expired. Start again.'], 422);
+        }
+
+        if ($user->status !== 'active') {
+            Cache::forget("login_ticket:{$data['ticket']}");
+
+            return response()->json(['message' => 'This account is disabled.'], 403);
         }
 
         if (! (new Google2FA())->verifyKey($user->totp_secret, $data['code'])) {
@@ -79,7 +82,7 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return $request->user()->load('role');
+        return response()->json(ProfileController::present($request->user()));
     }
 
     public function logout(Request $request)
