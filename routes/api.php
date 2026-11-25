@@ -30,6 +30,7 @@ Route::middleware(['auth:sanctum', 'ability:*'])->group(function () {
     Route::middleware('role:master_teacher,teacher,student')->group(function () {
         Route::get('/lessons', [LessonController::class, 'index']);
         Route::get('/lessons/{id}', [LessonController::class, 'show']);
+        Route::get('/lesson-days', [LessonController::class, 'days']);
         Route::get('/rewards', [RewardController::class, 'index']);
     });
 
@@ -61,6 +62,7 @@ Route::middleware(['auth:sanctum', 'ability:*'])->group(function () {
 
         Route::get('/sections', [SectionController::class, 'index']);
         Route::get('/sections/{id}', [SectionController::class, 'show']);
+        Route::get('/sections/{id}/progress', [ProgressController::class, 'section']);
         Route::post('/sections/{id}/students', [SectionController::class, 'addStudent']);
         Route::delete('/sections/{id}/students/{studentId}', [SectionController::class, 'removeStudent']);
 
@@ -68,7 +70,13 @@ Route::middleware(['auth:sanctum', 'ability:*'])->group(function () {
         Route::get('/accounts/{role}', [AccountController::class, 'index']);
         Route::patch('/accounts/{userId}/status', [AccountController::class, 'setStatus']);
 
+        Route::get('/students/{studentId}/progress', [ProgressController::class, 'student']);
         Route::get('/students/{studentId}/rewards', [RewardController::class, 'forStudent']);
+
+        // Allow teachers and master teachers to unlock/update lessons and days
+        Route::patch('/lessons/{id}', [LessonController::class, 'update']);
+        Route::patch('/lesson-days', [LessonController::class, 'setDay']);
+        Route::patch('/lesson-days/{dayNo}', [LessonController::class, 'setDay']);
     });
 
     // Master teacher routes
@@ -82,7 +90,6 @@ Route::middleware(['auth:sanctum', 'ability:*'])->group(function () {
         Route::patch('/sections/{id}', [SectionController::class, 'update']);
 
         Route::post('/lessons', [LessonController::class, 'store']);
-        Route::patch('/lessons/{id}', [LessonController::class, 'update']);
         Route::delete('/lessons/{id}', [LessonController::class, 'destroy']);
 
         Route::post('/rewards', [RewardController::class, 'store']);
