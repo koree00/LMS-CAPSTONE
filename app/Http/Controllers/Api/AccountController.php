@@ -143,11 +143,22 @@ class AccountController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+<<<<<<< HEAD
         // Works before and after the exceptionality migration has run
+=======
+        // Works before and after the exceptionality / display_nickname columns exist
+>>>>>>> d75761003c1da4f52a57f3ae3c4470147bd97c78
         $exceptionality = Schema::hasColumn('student_profile', 'exceptionality')
             ? 'sp.exceptionality'
             : 'NULL';
 
+<<<<<<< HEAD
+=======
+        $displayNickname = Schema::hasColumn('student_profile', 'display_nickname')
+            ? 'sp.display_nickname'
+            : 'NULL';
+
+>>>>>>> d75761003c1da4f52a57f3ae3c4470147bd97c78
         $query = DB::table('user_account as u')
             ->join('role as r', 'r.role_id', '=', 'u.role_id')
             ->leftJoin('teacher_profile as tp', 'tp.teacher_id', '=', 'u.user_id')
@@ -157,6 +168,11 @@ class AccountController extends Controller
                 u.user_id, u.email, u.status, u.created_at,
                 r.name AS role,
                 COALESCE(tp.display_name, sp.nickname) AS name,
+<<<<<<< HEAD
+=======
+                sp.nickname AS nickname,
+                {$displayNickname} AS display_nickname,
+>>>>>>> d75761003c1da4f52a57f3ae3c4470147bd97c78
                 sp.guardian_email,
                 {$exceptionality} AS exceptionality,
                 COALESCE(

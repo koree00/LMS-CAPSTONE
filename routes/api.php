@@ -31,6 +31,7 @@ Route::middleware(['auth:sanctum', 'ability:*'])->group(function () {
     Route::middleware('role:master_teacher,teacher,student')->group(function () {
         Route::get('/lessons', [LessonController::class, 'index']);
         Route::get('/lessons/{id}', [LessonController::class, 'show']);
+        Route::get('/lesson-days', [LessonController::class, 'days']);
         Route::get('/rewards', [RewardController::class, 'index']);
     });
 
@@ -76,6 +77,7 @@ Route::middleware(['auth:sanctum', 'ability:*'])->group(function () {
         Route::patch('/accounts/{userId}/status', [AccountController::class, 'setStatus']);
 
         Route::get('/students/{studentId}/progress', [ProgressController::class, 'student']);
+<<<<<<< HEAD
         Route::get('/students/{studentId}/summary', [ProgressController::class, 'summary']);
         Route::patch('/students/{studentId}/exceptionality', [AccountController::class, 'setExceptionality']);
         Route::get('/analytics/completion', [ProgressController::class, 'completion']);
@@ -83,6 +85,14 @@ Route::middleware(['auth:sanctum', 'ability:*'])->group(function () {
 
         // Allow teachers and master teachers to unlock/update lessons
         Route::patch('/lessons/{id}', [LessonController::class, 'update']);
+=======
+        Route::get('/students/{studentId}/rewards', [RewardController::class, 'forStudent']);
+
+        // Allow teachers and master teachers to unlock/update lessons and days
+        Route::patch('/lessons/{id}', [LessonController::class, 'update']);
+        Route::patch('/lesson-days', [LessonController::class, 'setDay']);
+        Route::patch('/lesson-days/{dayNo}', [LessonController::class, 'setDay']);
+>>>>>>> d75761003c1da4f52a57f3ae3c4470147bd97c78
     });
 
     // Master teacher routes

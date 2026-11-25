@@ -31,6 +31,37 @@ class LessonController extends Controller
         return $query->get();
     }
 
+    public function days(Request $request)
+    {
+        $query = Lesson::orderBy('level_no')->orderBy('day_no')->orderBy('lesson_id');
+
+        if ($request->user()->role->name === 'student') {
+            $query->where('is_unlocked', true);
+        }
+
+        if ($request->filled('level_no')) {
+            $query->where('level_no', $request->integer('level_no'));
+        }
+
+        $lessons = $query->get();
+
+        $days = $lessons
+            ->groupBy(fn ($lesson) => ($lesson->level_no ?? 1) . '-' . ($lesson->day_no ?? 1))
+            ->map(function ($group) {
+                $first = $group->first();
+
+                return [
+                    'level_no' => (int) ($first->level_no ?? 1),
+                    'day_no' => (int) ($first->day_no ?? 1),
+                    'is_unlocked' => (bool) $group->every('is_unlocked'),
+                    'lessons' => $group->values(),
+                ];
+            })
+            ->values();
+
+        return response()->json($days);
+    }
+
     public function show(Request $request, int $id)
     {
         $lesson = Lesson::findOrFail($id);
@@ -50,6 +81,7 @@ class LessonController extends Controller
             'description' => 'nullable|string',
             'subject' => ['required', Rule::in(Lesson::SUBJECTS)],
             'level_no' => 'required|integer|min:1',
+            'day_no' => 'nullable|integer|min:1|max:5',
             'is_unlocked' => 'boolean',
         ]);
 
@@ -69,6 +101,7 @@ class LessonController extends Controller
             'description' => 'nullable|string',
             'subject' => ['sometimes', Rule::in(Lesson::SUBJECTS)],
             'level_no' => 'sometimes|integer|min:1',
+            'day_no' => 'sometimes|nullable|integer|min:1|max:5',
             'is_unlocked' => 'sometimes|boolean',
         ]);
 
