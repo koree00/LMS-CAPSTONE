@@ -213,7 +213,18 @@ export function ProgressBar({ value }) {
   );
 }
 
-export function Avatar({ name, size = 36 }) {
+export function Avatar({ name, src, size = 36 }) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        aria-hidden="true"
+        className="shrink-0 rounded-full object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   const initials = String(name || "?")
     .split(/[\s@._-]+/)
     .filter(Boolean)

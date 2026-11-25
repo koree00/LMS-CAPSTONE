@@ -11,6 +11,7 @@ import Records from "./pages/staff/Records";
 import Content from "./pages/staff/Content";
 import Reports from "./pages/staff/Reports";
 import StaffSettings from "./pages/staff/Settings";
+import StaffProfile from "./pages/staff/Profile";
 import Home from "./pages/student/Home";
 import SubjectLessons from "./pages/student/SubjectLessons";
 import Week from "./pages/student/Week";
@@ -42,6 +43,7 @@ export default function App() {
               <Route path="records" element={<Records />} />
               <Route path="content" element={<Content />} />
               <Route path="reports" element={<Reports />} />
+              <Route path="profile" element={<StaffProfile />} />
               <Route path="settings" element={<StaffSettings />} />
             </Route>
           </Route>

@@ -14,52 +14,6 @@ function useAction(request, key) {
   });
 }
 
-// Individual daily lessons across levels and subjects, with per-lesson lock/unlock toggle
-function DailyLessons() {
-  const list = useQuery({ queryKey: ["lessons"], queryFn: () => get("/lessons") });
-  const toggleLesson = useAction(
-    (lesson) => api.patch(`/lessons/${lesson.lesson_id}`, { is_unlocked: !lesson.is_unlocked }),
-    "lessons"
-  );
-
-  if (list.isLoading) return <Loading />;
-  if (list.isError) return <ErrorText>{errMsg(list.error)}</ErrorText>;
-
-  const lessons = withDays(list.data);
-
-  if (!lessons.length) return <p className="py-8 text-center text-sm text-gray-500">No lessons yet.</p>;
-
-  return (
-    <>
-      <p className="mb-4 text-sm text-gray-600">
-        Manage individual daily lessons across levels and days. Open or lock a lesson directly for students.
-      </p>
-      <ErrorText>{toggleLesson.isError && errMsg(toggleLesson.error)}</ErrorText>
-      <Table
-        empty="No lessons yet."
-        rows={lessons}
-        columns={[
-          { label: "Lesson", render: (l) => <span className="font-medium">{l.title}</span> },
-          { label: "Subject", render: (l) => l.subject || "—" },
-          { label: "Schedule", render: (l) => `Level ${l.level_no} · Day ${l.day_no ?? 1}` },
-          {
-            label: "Status",
-            render: (l) => <Badge tone={l.is_unlocked ? "green" : "gray"}>{l.is_unlocked ? "Open" : "Locked"}</Badge>,
-          },
-          {
-            label: "Action",
-            render: (l) => (
-              <Button variant="ghost" disabled={toggleLesson.isPending} onClick={() => toggleLesson.mutate(l)}>
-                {l.is_unlocked ? "Lock" : "Open"}
-              </Button>
-            ),
-          },
-        ]}
-      />
-    </>
-  );
-}
-
 // The weekly games: each level's lessons on Day 1 to Day 5. Teachers open a whole day at once.
 function WeeklyGames() {
   const list = useQuery({ queryKey: ["lessons"], queryFn: () => get("/lessons") });
@@ -202,25 +156,23 @@ function Rewards({ master }) {
 export default function Content() {
   const { user } = useAuth();
   const master = user.role.name === "master_teacher";
-  const [tab, setTab] = useState("daily");
+  const [tab, setTab] = useState("games");
 
   return (
     <>
       <PageHeader
         title={master ? "Learning Content" : "Gamified Curriculum & Levels"}
-        subtitle="Daily lessons, the weekly games (Day 1 to Day 5), and the avatar shop."
+        subtitle="The weekly games (Day 1 to Day 5) and the avatar shop."
       />
       <Tabs
         value={tab}
         onChange={setTab}
         tabs={[
-          { value: "daily", label: "Daily lessons" },
           { value: "games", label: "Weekly games" },
           { value: "rewards", label: "Avatar shop" },
         ]}
       />
       <Card>
-        {tab === "daily" && <DailyLessons />}
         {tab === "games" && <WeeklyGames />}
         {tab === "rewards" && <Rewards master={master} />}
       </Card>

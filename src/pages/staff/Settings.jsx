@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import PasswordForm from "../../components/PasswordForm";
 import { Avatar, Badge, Button, Card, PageHeader } from "../../components/ui";
@@ -14,12 +15,16 @@ export default function Settings() {
 
       <Card className="mb-4">
         <div className="flex items-center gap-4">
-          <Avatar name={user.email} size={56} />
+          <Avatar name={user.full_name ?? user.email} src={user.photo} size={56} />
           <div>
-            <p className="text-lg font-semibold">{user.email}</p>
+            <p className="text-lg font-semibold">{user.full_name ?? user.email}</p>
+            {user.full_name && <p className="text-sm text-gray-600">{user.email}</p>}
             <Badge tone="red">{master ? "Master Teacher" : "Teacher"}</Badge>
             <p className="mt-1 text-sm text-gray-600">San Mateo Elementary School</p>
           </div>
+          <Link to="/app/profile" className="ml-auto text-sm text-brand underline">
+            Edit profile
+          </Link>
         </div>
       </Card>
 

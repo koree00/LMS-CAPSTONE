@@ -6,7 +6,7 @@ import { Avatar, Badge, Button, Card, ErrorText, Field, Input, Loading, Modal, P
 import { SectionDetail } from "./Sections";
 
 const EXCEPTIONALITIES = [
-  "Mild Attention-deficit/hyperactivity disorder (ADHD)",
+  "Attention-deficit/hyperactivity disorder (ADHD)",
   "Mild Autism Spectrum Disorder (ASD)",
 ];
 
@@ -22,6 +22,42 @@ function Credentials({ result, onClose }) {
         <p>Temporary password: {result.temporary_password}</p>
       </div>
       <Button onClick={onClose}>Done</Button>
+    </Modal>
+  );
+}
+
+function ExceptionalityModal({ student, onClose, onSaved }) {
+  const [value, setValue] = useState(student.exceptionality ?? "");
+  const save = useMutation({
+    mutationFn: () => api.patch(`/students/${student.user_id}/exceptionality`, { exceptionality: value.trim() || null }),
+    onSuccess: onSaved,
+  });
+
+  return (
+    <Modal title="Edit exceptionality" onClose={onClose}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          save.mutate();
+        }}
+      >
+        <p className="mb-3 text-sm text-gray-700">{student.name ?? student.email}</p>
+        <Field label="Exceptionality" hint="Choose a suggestion or type your own. Leave empty to clear it.">
+          <Input list="exceptionality-edit" value={value} onChange={(e) => setValue(e.target.value)} autoFocus />
+          <datalist id="exceptionality-edit">
+            {EXCEPTIONALITIES.map((x) => (
+              <option key={x} value={x} />
+            ))}
+          </datalist>
+        </Field>
+        <ErrorText>{save.isError && errMsg(save.error)}</ErrorText>
+        <div className="flex gap-2">
+          <Button disabled={save.isPending}>{save.isPending ? "Saving…" : "Save"}</Button>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+        </div>
+      </form>
     </Modal>
   );
 }
@@ -144,19 +180,6 @@ function InviteModal({ master, onClose, onCreated }) {
   );
 }
 
-function getStudentNickname(row) {
-  const realName = (row.name ?? row.email ?? "").trim();
-  const customNickname = (row.display_nickname ?? row.student_nickname ?? "").trim();
-  if (customNickname && customNickname !== realName) {
-    return customNickname;
-  }
-  const fallbackNickname = (row.nickname ?? "").trim();
-  if (fallbackNickname && fallbackNickname !== realName) {
-    return fallbackNickname;
-  }
-  return "";
-}
-
 export default function Users() {
   const { user } = useAuth();
   const master = user.role.name === "master_teacher";
@@ -171,6 +194,7 @@ export default function Users() {
   const [created, setCreated] = useState(null);
   const [openSection, setOpenSection] = useState(null);
   const [rowError, setRowError] = useState("");
+  const [editing, setEditing] = useState(null);
 
   const sections = useQuery({ queryKey: ["sections"], queryFn: () => get("/sections") });
   const list = useQuery({ queryKey: ["accounts", role, page], queryFn: () => get(`/accounts/${role}`, { page }) });
@@ -192,39 +216,47 @@ export default function Users() {
   };
 
   const q = search.toLowerCase();
-  const rows = list.data?.data.filter((r) => {
-    const nickname = getStudentNickname(r);
-    return (
+  const rows = list.data?.data.filter(
+    (r) =>
       (!status || r.status === status) &&
       (!sectionName || (r.sections || "").includes(sectionName)) &&
-      (!q ||
-        (r.name ?? r.email).toLowerCase().includes(q) ||
-        nickname.toLowerCase().includes(q) ||
-        (r.exceptionality || "").toLowerCase().includes(q))
-    );
-  });
+      (!q || (r.name ?? r.email).toLowerCase().includes(q))
+  );
 
   const columns = [
     {
       label: "Name",
-      render: (r) => {
-        const realName = r.name ?? r.email;
-        const nickname = getStudentNickname(r);
-        return (
-          <span className="flex items-center gap-2">
-            <Avatar name={realName} size={30} />
-            <span className="font-medium">{realName}</span>
-            {nickname && <span className="text-xs text-gray-500">({nickname})</span>}
-          </span>
-        );
-      },
+      render: (r) => (
+        <span className="flex items-center gap-2">
+          <Avatar name={r.name ?? r.email} size={30} />
+          <span className="font-medium">{r.name ?? r.email}</span>
+        </span>
+      ),
     },
     ...(master
       ? [{ label: "Role", render: (r) => ((r.role ?? role) === "teacher" ? "Teacher" : "SNED Student") }]
       : []),
     { label: "Assigned section", render: (r) => r.sections || "—" },
     { label: master ? "Email / parent Gmail" : "Parent email", render: (r) => r.guardian_email ?? r.email },
-    { label: "Exceptionality", render: (r) => r.exceptionality || "—" },
+    {
+      label: "Exceptionality",
+      render: (r) =>
+        (r.role ?? role) === "student" ? (
+          <span className="flex items-center gap-2">
+            {r.exceptionality || "—"}
+            <button
+              type="button"
+              className="text-xs text-brand underline"
+              onClick={() => setEditing(r)}
+              aria-label={`Edit exceptionality for ${r.name ?? r.email}`}
+            >
+              Edit
+            </button>
+          </span>
+        ) : (
+          "—"
+        ),
+    },
     { label: "Status", render: (r) => <Badge tone={r.status === "active" ? "green" : "red"}>{r.status}</Badge> },
     {
       label: "Actions",
@@ -309,6 +341,18 @@ export default function Users() {
       </Card>
 
       {inviting && <InviteModal master={master} onClose={() => setInviting(false)} onCreated={done} />}
+      {editing && (
+        <ExceptionalityModal
+          student={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            qc.invalidateQueries({ queryKey: ["accounts"] });
+            qc.invalidateQueries({ queryKey: ["section"] });
+            qc.invalidateQueries({ queryKey: ["student-summary"] });
+          }}
+        />
+      )}
       {created && <Credentials result={created} onClose={() => setCreated(null)} />}
       {openSection && <SectionDetail id={openSection} master={false} meId={user.user_id} onClose={() => setOpenSection(null)} />}
     </>

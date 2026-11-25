@@ -43,15 +43,15 @@ function UserMenu({ user, roleLabel, signOut }) {
         aria-expanded={open}
         className="flex items-center gap-3 rounded-lg px-2 py-1 text-left hover:bg-gray-50"
       >
-        <Avatar name={user.email} />
+        <Avatar name={user.full_name ?? user.email} src={user.photo} />
         <span className="hidden sm:block">
-          <span className="block text-sm font-medium">{user.email}</span>
+          <span className="block text-sm font-medium">{user.full_name ?? user.email}</span>
           <span className="block text-xs text-gray-500">{roleLabel}</span>
         </span>
       </button>
       {open && (
         <div role="menu" className="absolute right-0 z-40 mt-2 w-56 rounded-lg bg-white p-1 text-sm shadow-lg ring-1 ring-black/10">
-          <Link role="menuitem" to="/app/settings" className="block rounded-md px-3 py-2 hover:bg-gray-50">
+          <Link role="menuitem" to="/app/profile" className="block rounded-md px-3 py-2 hover:bg-gray-50">
             View Profile
           </Link>
           <Link role="menuitem" to="/app/settings" className="block rounded-md px-3 py-2 hover:bg-gray-50">

@@ -13,15 +13,29 @@ const codeClass = `${inputClass} text-center text-xl tracking-[0.5em]`;
 function Shell({ title, subtitle, children }) {
   return (
     <div className="flex min-h-screen">
-      <div className="hidden w-1/2 flex-col justify-center bg-gradient-to-br from-brand to-brand-dark p-16 text-white md:flex">
-        <h1 className="text-5xl font-bold leading-tight">
-          San Mateo
-          <br />
-          Elementary
-          <br />
-          School
-        </h1>
-        <span className="mt-4 w-fit rounded bg-white/20 px-3 py-1 text-sm">Built for Inclusive Learning</span>
+      <div className="relative hidden w-1/2 flex-col justify-center overflow-hidden p-16 text-white md:flex">
+        {/* School photo sits behind the red wash */}
+        <img
+          src="/school-gate.jpg"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        {/* Red wash: lower the /60 and /70 numbers to show more of the school */}
+        <div className="absolute inset-0 bg-gradient-to-br from-brand/60 to-brand-dark/70" />
+
+        <div className="relative">
+          <h1 className="text-5xl font-bold leading-tight drop-shadow-md">
+            San Mateo
+            <br />
+            Elementary
+            <br />
+            School
+          </h1>
+          <span className="mt-4 inline-block w-fit rounded bg-white/20 px-3 py-1 text-sm backdrop-blur-sm">
+            Built for Inclusive Learning
+          </span>
+        </div>
       </div>
 
       <div className="flex flex-1 items-center justify-center p-6">

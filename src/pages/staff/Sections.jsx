@@ -161,6 +161,7 @@ export function SectionDetail({ id, master, meId, onClose }) {
                   </span>
                 ),
               },
+              { label: "Exceptionality", render: (r) => r.exceptionality || "—" },
               {
                 label: "Action",
                 render: (r) => (
