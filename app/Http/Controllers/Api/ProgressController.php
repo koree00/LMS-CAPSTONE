@@ -179,7 +179,6 @@ class ProgressController extends Controller
     // MASTER / TEACHER: header numbers for one student's record
     public function summary(Request $request, int $studentId)
     {
-<<<<<<< HEAD
         $columns = ['sp.student_id', 'sp.nickname', 'sp.guardian_email',
                     'sp.sensory_preferences', 'u.email', 'u.status'];
         // Works before and after the exceptionality migration has run
@@ -191,13 +190,6 @@ class ProgressController extends Controller
             ->join('user_account as u', 'u.user_id', '=', 'sp.student_id')
             ->where('sp.student_id', $studentId)
             ->select($columns)
-=======
-        $profile = DB::table('student_profile as sp')
-            ->join('user_account as u', 'u.user_id', '=', 'sp.student_id')
-            ->where('sp.student_id', $studentId)
-            ->select('sp.student_id', 'sp.nickname', 'sp.guardian_email', 'sp.exceptionality',
-                     'sp.sensory_preferences', 'u.email', 'u.status')
->>>>>>> d75761003c1da4f52a57f3ae3c4470147bd97c78
             ->first();
         abort_unless($profile, 404);
 
